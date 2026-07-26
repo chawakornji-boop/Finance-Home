@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>สมุดบัญชีบอล & แต๊ก</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1B2A4A; --ink-soft:#31456B; --parchment:#F5F1E6; --parchment-dark:#EAE3D2;
+    --gold:#C9A24B; --gold-soft:#E4CE94; --ball:#2F5D8A; --ball-soft:#DCE7F0;
+    --taek:#C1583F; --taek-soft:#F3DCD3; --income:#4C7A5E; --income-soft:#DCEAE1;
+    --expense:#A63D40; --expense-soft:#F2DCDC; --line:#D8CFB8; --ink50:rgba(27,42,74,.5);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--parchment);color:var(--ink);font-family:'Sarabun',sans-serif;padding-bottom:48px;}
+  .heading{font-family:'Prompt',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px;}
+  button{cursor:pointer;font-family:inherit;}
+  input,select{font-family:'Sarabun',sans-serif;}
+  .btn{transition:transform .12s ease;}
+  .btn:active{transform:scale(.97);}
+  ::-webkit-scrollbar{height:6px;width:6px;}
+
+  header.cover{background:var(--ink);color:var(--parchment);padding:22px 20px 0;}
+  .cover-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;max-width:980px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-badge{width:34px;height:34px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:17px;}
+  .brand-title{font-size:19px;font-weight:700;}
+  .brand-sub{font-size:11.5px;opacity:.65;}
+  #saveIndicator{font-size:11px;opacity:.6;font-family:'JetBrains Mono',monospace;}
+
+  .tabs{display:flex;gap:8px;margin-top:18px;max-width:980px;margin-left:auto;margin-right:auto;padding:0 0;}
+  .tab-btn{padding:8px 18px;border-radius:10px 10px 0 0;border:none;font-weight:600;font-size:13.5px;background:rgba(245,241,230,.12);color:var(--parchment);border-bottom:3px solid transparent;}
+  .tab-btn.active{background:var(--parchment);color:var(--ink);}
+
+  .month-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 0 6px;}
+  .nav-btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:14px;}
+  #monthLabel{font-family:'Prompt',sans-serif;font-weight:600;font-size:15px;min-width:160px;text-align:center;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .card-label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink50);}
+  .card-value{font-size:24px;font-weight:600;margin-top:4px;}
+  .card-caption{font-size:10.5px;color:var(--ink50);margin-top:3px;}
+  .balance-card{position:relative;overflow:hidden;}
+  .stamp{position:absolute;top:10px;right:10px;transform:rotate(-8deg);border:2px solid var(--expense);color:var(--expense);font-family:'Prompt',sans-serif;font-weight:700;font-size:10.5px;padding:2px 8px;border-radius:5px;letter-spacing:1px;}
+
+  .salary-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .salary-chip{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px;}
+  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;flex-shrink:0;}
+  .salary-chip input{width:78px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12.5px;}
+  .salary-chip button{font-size:11.5px;border:none;border-radius:6px;padding:5px 9px;background:var(--gold);color:var(--ink);font-weight:600;}
+  .salary-chip button:disabled{background:var(--parchment-dark);color:var(--ink50);cursor:default;}
+
+  .perforation{display:flex;align-items:center;gap:5px;margin:22px 0;opacity:.5;flex-wrap:wrap;overflow:hidden;height:6px;}
+  .perforation span{width:4px;height:4px;border-radius:999px;background:var(--ink);flex-shrink:0;}
+
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+  .section-head h2{font-size:15px;font-weight:600;margin:0;}
+  .action-btn{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;border:none;border-radius:7px;padding:6px 10px;}
+  .action-btn.dark{background:var(--ink);color:var(--parchment);}
+  .action-btn.gold{background:var(--gold);color:var(--ink);}
+
+  .list{display:grid;gap:8px;margin-top:10px;}
+  .fixed-row,.ledger-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .fixed-row:hover{background:var(--parchment-dark);}
+  .fixed-name{font-size:13.5px;font-weight:600;}
+  .fixed-meta{font-size:11px;color:var(--ink50);}
+  .fixed-amount{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;}
+  .pay-btn{font-size:11.5px;font-weight:600;border:none;border-radius:7px;padding:6px 10px;background:var(--expense-soft);color:var(--expense);display:flex;align-items:center;gap:4px;}
+  .pay-btn.paid{background:var(--income-soft);color:var(--income);cursor:default;}
+  .icon-btn{border:none;background:transparent;opacity:.4;padding:2px;}
+  .icon-btn:hover{opacity:.8;}
+
+  .empty{padding:18px 14px;font-size:12px;color:var(--ink50);text-align:center;}
+
+  .ledger-card{background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:10px;overflow:hidden;}
+  .ledger-head{display:grid;grid-template-columns:70px 46px 1fr 90px 90px 30px;gap:8px;padding:8px 14px;font-size:10.5px;color:var(--ink50);border-bottom:1px dashed var(--line);font-family:'JetBrains Mono',monospace;}
+  .ledger-body{max-height:340px;overflow-y:auto;}
+  .ledger-row{display:grid;grid-template-columns:70px 46px 1fr 90px 90px 30px;gap:8px;padding:9px 14px;font-size:12px;align-items:center;border-bottom:1px dashed var(--line);border-radius:0;}
+  .ledger-row:hover{background:var(--parchment-dark);}
+  .ledger-date{font-family:'JetBrains Mono',monospace;color:var(--ink50);}
+  .ledger-who{font-weight:600;}
+  .ledger-desc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ledger-method{font-size:10.5px;color:var(--ink50);}
+  .ledger-amount{font-family:'JetBrains Mono',monospace;text-align:right;font-weight:600;}
+
+  .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:30px;}
+  .chart-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .chart-card h3{font-family:'Prompt',sans-serif;font-size:13px;font-weight:600;margin:0 0 6px;}
+  .chart-box{height:230px;position:relative;}
+
+  /* modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(27,42,74,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:#fff;border:1.5px solid var(--gold);border-radius:12px;padding:16px;max-width:560px;width:100%;}
+  .modal h3{margin:0 0 12px;font-family:'Prompt',sans-serif;font-size:15px;}
+  .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .field label{font-size:10.5px;color:var(--ink50);display:block;margin-bottom:3px;}
+  .field input,.field select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;width:100%;background:#fff;}
+  .field.hidden{display:none;}
+  .modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;}
+  .modal-actions button{border-radius:7px;padding:8px 16px;font-size:12.5px;font-weight:600;border:none;}
+  .btn-cancel{border:1px solid var(--line) !important;background:#fff;}
+  .btn-submit{background:var(--gold);color:var(--ink);}
+  .type-toggle{display:flex;gap:8px;margin-bottom:12px;}
+  .type-toggle button{flex:1;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;background:var(--parchment);color:var(--ink50);}
+  .type-toggle button.active-expense{background:var(--expense-soft);color:var(--expense);}
+  .type-toggle button.active-income{background:var(--income-soft);color:var(--income);}
+  .error-text{color:var(--expense);font-size:11.5px;margin-top:8px;display:none;}
+
+  @media (max-width:640px){
+    .ledger-head,.ledger-row{grid-template-columns:56px 40px 1fr 70px;}
+    .ledger-method{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="cover-top">
+    <div class="brand">
+      <div class="brand-badge">🐷</div>
+      <div>
+        <div class="brand-title heading">สมุดบัญชีบอล & แต๊ก</div>
+        <div class="brand-sub">บันทึกรายรับ-รายจ่ายประจำวัน</div>
+      </div>
+    </div>
+    <div id="saveIndicator">บันทึกแล้ว ✓</div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</header>
+
+<div id="setupBanner" style="display:none;background:#E4CE94;color:#1B2A4A;font-size:12.5px;padding:10px 20px;text-align:center;">
+  ยังไม่ได้ตั้งค่า Supabase — ตอนนี้ข้อมูลจะเก็บเฉพาะเครื่องนี้เท่านั้น (ไม่ sync กับแต๊ก) ดูวิธีตั้งค่าด้านล่างของไฟล์นี้ (คอมเมนต์ในซอร์สโค้ด)
+</div>
+
+<div class="wrap">
+  <div class="month-nav">
+    <button class="nav-btn" id="prevMonth">‹</button>
+    <div id="monthLabel"></div>
+    <button class="nav-btn" id="nextMonth">›</button>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="salary-row" id="salaryRow"></div>
+
+  <div class="perforation" id="perf1"></div>
+
+  <div class="section-head">
+    <h2 class="heading">รายจ่ายประจำ (Fixed Cost)</h2>
+    <button class="action-btn dark btn" id="openFixedModal">+ ตั้งค่ารายการ</button>
+  </div>
+  <div class="list" id="fixedList"></div>
+
+  <div class="perforation" id="perf2"></div>
+
+  <div class="section-head">
+    <h2 class="heading">รายการเดินบัญชี</h2>
+    <button class="action-btn gold btn" id="openTxModal">+ บันทึกรายการ</button>
+  </div>
+  <div class="ledger-card">
+    <div class="ledger-head">
+      <span>วันที่</span><span>ใคร</span><span>รายการ</span><span class="ledger-method-head">ช่องทาง</span><span style="text-align:right">จำนวน</span><span></span>
+    </div>
+    <div class="ledger-body" id="ledgerBody"></div>
+  </div>
+
+  <div class="perforation" id="perf3"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>สัดส่วนช่องทางจ่ายเงิน (เดือนนี้)</h3>
+      <div class="chart-box" id="pieBox"><canvas id="pieChart"></canvas></div>
+      <div class="empty" id="pieEmpty" style="display:none;">ยังไม่มีรายจ่ายให้แสดงผล</div>
+    </div>
+    <div class="chart-card">
+      <h3>แนวโน้ม 6 เดือนล่าสุด</h3>
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Fixed cost modal -->
+<div class="modal-overlay" id="fixedModalOverlay">
+  <div class="modal">
+    <h3>ตั้งค่ารายการ Fixed Cost</h3>
+    <form id="fixedForm">
+      <div class="field-grid">
+        <div class="field"><label>ใคร</label>
+          <select id="fc_person"><option>บอล</option><option>แต๊ก</option></select>
+        </div>
+        <div class="field"><label>ชื่อรายการ</label>
+          <input id="fc_name" placeholder="เช่น ค่าเช่าห้อง" required />
+        </div>
+        <div class="field"><label>จำนวนเงิน (บาท)</label>
+          <input id="fc_amount" type="number" min="1" step="1" required />
+        </div>
+        <div class="field"><label>วันที่ครบกำหนด (1-31)</label>
+          <input id="fc_dueDay" type="number" min="1" max="31" value="5" required />
+        </div>
+        <div class="field"><label>วิธีจ่าย</label>
+          <select id="fc_method"><option>โอนจ่าย</option><option>เงินสด</option><option>บัตรเครดิต</option></select>
+        </div>
+        <div class="field hidden" id="fc_bank_field"><label>ธนาคาร/บัตร</label>
+          <select id="fc_bank">
+            <option value="">เลือกธนาคาร</option>
+            <option>กสิกรไทย (KBank)</option><option>กรุงไทย (KTC)</option><option>ยูโอบี (UOB)</option>
+            <option>ทีทีบี (TTB)</option><option>ไทยพาณิชย์ (SCB)</option><option>กรุงศรี (Krungsri)</option><option>อื่นๆ</option>
+          </select>
+        </div>
+      </div>
+      <div class="error-text" id="fc_error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" data-close="fixedModalOverlay">ยกเลิก</button>
+        <button type="submit" class="btn-submit">บันทึกรายการ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Transaction modal -->
+<div class="modal-overlay" id="txModalOverlay">
+  <div class="modal">
+    <h3>บันทึกรายการ</h3>
+    <div class="type-toggle">
+      <button type="button" id="tx_type_expense" class="active-expense">▼ รายจ่าย</button>
+      <button type="button" id="tx_type_income">▲ รายรับ</button>
+    </div>
+    <form id="txForm">
+      <input type="hidden" id="tx_type" value="expense" />
+      <div class="field-grid">
+        <div class="field"><label>ใคร</label>
+          <select id="tx_person"><option>บอล</option><option>แต๊ก</option></select>
+        </div>
+        <div class="field"><label>วันที่</label>
+          <input id="tx_date" type="date" required />
+        </div>
+        <div class="field" id="tx_isFixed_field"><label>ประเภทรายจ่าย</label>
+          <select id="tx_isFixed"><option value="daily">รายจ่ายรายวัน</option><option value="fixed">Fixed cost ประจำเดือน</option></select>
+        </div>
+        <div class="field" id="tx_fixedCat_field">
+          <label id="tx_cat_label">หมวดหมู่</label>
+          <select id="tx_fixedCategory" class="hidden"></select>
+          <input id="tx_category" placeholder="เช่น อาหาร" list="cat-list" />
+          <datalist id="cat-list">
+            <option value="อาหาร"></option><option value="เดินทาง"></option><option value="ของใช้"></option>
+            <option value="ช้อปปิ้ง"></option><option value="บันเทิง"></option><option value="สุขภาพ"></option><option value="อื่นๆ"></option>
+          </datalist>
+        </div>
+        <div class="field"><label>จำนวนเงิน (บาท)</label>
+          <input id="tx_amount" type="number" min="1" step="1" required />
+        </div>
+        <div class="field" id="tx_method_field"><label>วิธีจ่าย</label>
+          <select id="tx_method"><option>โอนจ่าย</option><option>เงินสด</option><option>บัตรเครดิต</option></select>
+        </div>
+        <div class="field hidden" id="tx_bank_field"><label>ธนาคาร/บัตร</label>
+          <select id="tx_bank">
+            <option value="">เลือกธนาคาร</option>
+            <option>กสิกรไทย (KBank)</option><option>กรุงไทย (KTC)</option><option>ยูโอบี (UOB)</option>
+            <option>ทีทีบี (TTB)</option><option>ไทยพาณิชย์ (SCB)</option><option>กรุงศรี (Krungsri)</option><option>อื่นๆ</option>
+          </select>
+        </div>
+        <div class="field"><label>โน้ต (ถ้ามี)</label>
+          <input id="tx_note" />
+        </div>
+      </div>
+      <div class="error-text" id="tx_error"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" data-close="txModalOverlay">ยกเลิก</button>
+        <button type="submit" class="btn-submit">บันทึกรายการ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // SUPABASE SETUP — วิธีเปิดใช้งานแบบ sync เรียลไทม์ระหว่างบอล/แต๊ก
+  // ============================================================
+  // 1. สมัครฟรีที่ https://supabase.com > New project
+  // 2. ไปที่ SQL Editor แล้วรันคำสั่งนี้ครั้งเดียว:
+  //
+  //    create table finance_state (
+  //      id text primary key,
+  //      data jsonb not null,
+  //      updated_at timestamptz default now()
+  //    );
+  //    alter publication supabase_realtime add table finance_state;
+  //    alter table finance_state enable row level security;
+  //    create policy "allow all for this demo"
+  //      on finance_state for all
+  //      using (true) with check (true);
+  //
+  //    (นี่คือ policy แบบเปิดกว้างสำหรับใช้กันเองในครอบครัว — ไม่เหมาะกับแอปสาธารณะ)
+  //
+  // 3. ไปที่ Project Settings > API แล้วคัดลอก "Project URL" และ "anon public key"
+  //    มาใส่แทนค่า YOUR_SUPABASE_URL และ YOUR_SUPABASE_ANON_KEY ด้านล่างนี้
+  // 4. เซฟไฟล์นี้แล้วอัปโหลดขึ้น GitHub (แทนที่ไฟล์เดิม) — เสร็จแล้ว ทั้งบอลและแต๊ก
+  //    เปิด URL เดียวกันจะเห็นข้อมูลชุดเดียวกัน อัปเดตแบบเรียลไทม์
+  // ============================================================
+  const SUPABASE_URL = "YOUR_SUPABASE_URL";
+  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+  const ROW_ID = "ball-taek-shared";
+
+  const isSupabaseConfigured = !SUPABASE_URL.includes("YOUR_") && !SUPABASE_ANON_KEY.includes("YOUR_");
+  let supabaseClient = null;
+  if (isSupabaseConfigured && window.supabase) {
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch(e) {
+      console.error("เชื่อมต่อ Supabase ไม่สำเร็จ", e);
+    }
+  }
+
+  // ---------- constants ----------
+  const STORAGE_KEY = "finance-data-v1"; // ใช้เป็น local cache เสมอ (และ fallback ถ้าไม่ได้ตั้งค่า Supabase)
+  const PEOPLE = [
+    { id: "บอล", color: "#2F5D8A" },
+    { id: "แต๊ก", color: "#C1583F" },
+  ];
+  const COLORS = { income:"#4C7A5E", expense:"#A63D40", ink:"#1B2A4A", ball:"#2F5D8A", taek:"#C1583F", gold:"#C9A24B" };
+
+  function defaultState(){
+    return {
+      profiles: { "บอล": { salary: 25000 }, "แต๊ก": { salary: 22000 } },
+      fixedCosts: [],
+      transactions: [],
+    };
+  }
+
+  function isValidState(parsed){
+    return parsed && typeof parsed === "object" && parsed.profiles
+      && Array.isArray(parsed.fixedCosts) && Array.isArray(parsed.transactions);
+  }
+
+  function loadLocalCache(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      return isValidState(parsed) ? parsed : defaultState();
+    } catch(e){
+      console.error("โหลดข้อมูล local cache ผิดพลาด, ใช้ค่าเริ่มต้นแทน", e);
+      return defaultState();
+    }
+  }
+
+  async function loadState(){
+    if (!supabaseClient) return loadLocalCache();
+    try {
+      const { data, error } = await supabaseClient
+        .from("finance_state").select("data").eq("id", ROW_ID).maybeSingle();
+      if (error) throw error;
+      if (data && isValidState(data.data)) return data.data;
+      // ยังไม่มีแถวนี้ในฐานข้อมูล -> สร้างแถวเริ่มต้น
+      const init = defaultState();
+      await supabaseClient.from("finance_state").upsert({ id: ROW_ID, data: init, updated_at: new Date().toISOString() });
+      return init;
+    } catch(e){
+      console.error("โหลดจาก Supabase ไม่สำเร็จ, ใช้ข้อมูลที่แคชไว้ในเครื่องแทน", e);
+      return loadLocalCache();
+    }
+  }
+
+  let state = defaultState();
+  let ui = { person: "รวม", cursor: new Date() };
+  let saveTimer = null;
+  let suppressPersist = false; // true ขณะกำลัง apply ข้อมูลที่มาจาก realtime update ของอีกฝั่ง
+  let pieChartInstance = null;
+  let trendChartInstance = null;
+
+  function setIndicator(text, opacity){
+    const ind = document.getElementById("saveIndicator");
+    ind.textContent = text;
+    ind.style.opacity = opacity;
+  }
+
+  function persistState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); // แคชในเครื่องเสมอ ไม่ว่าจะมี Supabase หรือไม่
+    if (!supabaseClient) { setIndicator("บันทึกในเครื่องนี้ ✓ (ยังไม่ sync)", "0.6"); return; }
+    setIndicator("กำลัง sync…", "0.8");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        const { error } = await supabaseClient.from("finance_state")
+          .upsert({ id: ROW_ID, data: state, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        setIndicator("sync แล้ว ✓", "0.6");
+      } catch(e){
+        console.error("sync ขึ้น Supabase ไม่สำเร็จ", e);
+        setIndicator("sync ไม่สำเร็จ (เช็คอินเทอร์เน็ต)", "1");
+      }
+    }, 400);
+  }
+
+  function subscribeRealtime(){
+    if (!supabaseClient) return;
+    supabaseClient
+      .channel("finance_state_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_state", filter: `id=eq.${ROW_ID}` },
+        (payload) => {
+          const incoming = payload.new && payload.new.data;
+          if (!isValidState(incoming)) return;
+          suppressPersist = true;
+          state = incoming;
+          render();
+          suppressPersist = false;
+        })
+      .subscribe();
+  }
+
+  // ---------- helpers ----------
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const todayISO = () => {
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off*60000).toISOString().slice(0,10);
+  };
+  const fmt = (n) => {
+    if (!isFinite(n)) return "0";
+    const neg = n < 0;
+    return (neg ? "-" : "") + Math.round(Math.abs(n)).toLocaleString("th-TH");
+  };
+  const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  const thaiMonth = (d) => new Intl.DateTimeFormat("th-TH", { month:"long", year:"numeric" }).format(d);
+  const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const personColor = (p) => (PEOPLE.find(x=>x.id===p) || {}).color || COLORS.ink;
+
+  function scopedList(list){
+    return ui.person === "รวม" ? list : list.filter(t => t.person === ui.person);
+  }
+
+  // ---------- render ----------
+  function render(){
+    renderTabs();
+    renderMonthLabel();
+    const mk = monthKey(ui.cursor);
+    const txInMonth = state.transactions.filter(t => t.date && t.date.slice(0,7) === mk);
+    const monthTx = scopedList(txInMonth);
+
+    const totalIncome = monthTx.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0);
+    const totalExpense = monthTx.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0);
+    const fixedExpense = monthTx.filter(t=>t.type==="expense" && t.isFixed).reduce((s,t)=>s+t.amount,0);
+    const dailyExpense = totalExpense - fixedExpense;
+    const balance = totalIncome - totalExpense;
+
+    const salaryTarget = ui.person === "รวม"
+      ? Object.values(state.profiles).reduce((s,p)=>s+(p.salary||0),0)
+      : (state.profiles[ui.person]?.salary || 0);
+
+    renderKpis(totalIncome, totalExpense, fixedExpense, dailyExpense, balance, salaryTarget);
+    renderSalaryRow(mk, txInMonth);
+    renderFixedList(txInMonth);
+    renderLedger(monthTx);
+    renderCharts(monthTx);
+
+    if (!suppressPersist) persistState();
+  }
+
+  function renderTabs(){
+    const tabs = document.getElementById("tabs");
+    const opts = [{id:"รวม",color:COLORS.gold}, ...PEOPLE.map(p=>({id:p.id,color:p.color}))];
+    tabs.innerHTML = opts.map(o => `
+      <button class="tab-btn ${ui.person===o.id?"active":""}" data-person="${escapeHtml(o.id)}"
+        style="border-bottom-color:${ui.person===o.id?o.color:"transparent"}">
+        ${o.id==="รวม" ? "ภาพรวม" : escapeHtml(o.id)}
+      </button>`).join("");
+    tabs.querySelectorAll("[data-person]").forEach(btn => {
+      btn.addEventListener("click", () => { ui.person = btn.dataset.person; render(); });
+    });
+  }
+
+  function renderMonthLabel(){
+    document.getElementById("monthLabel").textContent = thaiMonth(ui.cursor);
+  }
+
+  function renderKpis(income, expense, fixedExpense, dailyExpense, balance, salaryTarget){
+    const grid = document.getElementById("kpiGrid");
+    const overBudget = balance < 0;
+    grid.innerHTML = `
+      <div class="card">
+        <div class="card-label">▲ รายรับเดือนนี้</div>
+        <div class="card-value mono" style="color:${COLORS.income}">฿${fmt(income)}</div>
+        <div class="card-caption">รวมทุกช่องทาง</div>
+      </div>
+      <div class="card">
+        <div class="card-label">▼ รายจ่ายเดือนนี้</div>
+        <div class="card-value mono" style="color:${COLORS.expense}">฿${fmt(expense)}</div>
+        <div class="card-caption">Fixed ${fmt(fixedExpense)} • รายวัน ${fmt(dailyExpense)}</div>
+      </div>
+      <div class="card balance-card" style="border-color:${overBudget?COLORS.expense:"#C9A24B"};${overBudget?"background:#F2DCDC":""}">
+        <div class="card-label">💰 คงเหลือ</div>
+        <div class="card-value mono" style="color:${overBudget?COLORS.expense:COLORS.ink}">฿${fmt(balance)}</div>
+        ${overBudget
+          ? `<div class="stamp">เกินงบ</div>`
+          : `<div class="card-caption">เทียบเงินเดือน ${salaryTarget ? Math.round((balance/salaryTarget)*100) : 0}%</div>`}
+      </div>
+    `;
+  }
+
+  function renderSalaryRow(mk, txInMonth){
+    const row = document.getElementById("salaryRow");
+    const people = ui.person === "รวม" ? PEOPLE.map(p=>p.id) : [ui.person];
+    row.innerHTML = people.map(p => {
+      const already = txInMonth.some(t => t.type==="income" && t.person===p && t.category==="เงินเดือน");
+      const salary = state.profiles[p]?.salary || 0;
+      return `
+        <div class="salary-chip">
+          <span class="dot" style="background:${personColor(p)}"></span>
+          <span>เงินเดือน ${escapeHtml(p)}</span>
+          <input type="number" min="0" step="1" class="mono" data-salary-input="${escapeHtml(p)}" value="${salary}" />
+          <button data-salary-add="${escapeHtml(p)}" ${already?"disabled":""}>${already?"รับแล้ว (25)":"+ รับเงินเดือน วันที่ 25"}</button>
+        </div>`;
+    }).join("");
+
+    row.querySelectorAll("[data-salary-input]").forEach(inp => {
+      inp.addEventListener("change", () => {
+        const p = inp.dataset.salaryInput;
+        const val = Math.max(0, Number(inp.value) || 0);
+        state.profiles[p] = state.profiles[p] || {};
+        state.profiles[p].salary = val;
+        render(); // refresh KPI comparisons that depend on salary
+      });
+    });
+    row.querySelectorAll("[data-salary-add]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const p = btn.dataset.salaryAdd;
+        const amt = state.profiles[p]?.salary || 0;
+        if(!amt) return;
+        state.transactions.unshift({
+          id: uid(), person: p, date: `${mk}-25`, type: "income", amount: amt,
+          category: "เงินเดือน", isFixed: false, paymentMethod: "โอนจ่าย", bank: null,
+          note: "เงินเดือนอัตโนมัติ (25)", fixedTemplateId: null,
+        });
+        render();
+      });
+    });
+  }
+
+  function renderFixedList(txInMonth){
+    const list = document.getElementById("fixedList");
+    const items = (ui.person === "รวม" ? state.fixedCosts : state.fixedCosts.filter(f=>f.person===ui.person))
+      .slice().sort((a,b)=>a.dueDay-b.dueDay);
+
+    if(items.length === 0){
+      list.innerHTML = `<div class="empty">ยังไม่มีรายการ Fixed cost — เพิ่มค่าเช่า ค่าน้ำ ค่าไฟ ผ่อนบัตร ฯลฯ ที่นี่ เพื่อให้ระบบเตือนวันจ่ายให้อัตโนมัติ</div>`;
+      return;
+    }
+
+    list.innerHTML = items.map(f => {
+      const paid = txInMonth.some(t => t.fixedTemplateId === f.id);
+      return `
+        <div class="fixed-row">
+          <span class="dot" style="background:${personColor(f.person)}"></span>
+          <div style="flex:1;min-width:120px;">
+            <div class="fixed-name">${escapeHtml(f.name)}</div>
+            <div class="fixed-meta">ครบกำหนดวันที่ ${f.dueDay} • ${escapeHtml(f.paymentMethod)}${f.bank?` • ${escapeHtml(f.bank)}`:""}</div>
+          </div>
+          <div class="fixed-amount">฿${fmt(f.amount)}</div>
+          <button class="pay-btn ${paid?"paid":""}" data-pay="${f.id}" ${paid?"disabled":""}>${paid?"✓ จ่ายแล้ว":"บันทึกจ่าย"}</button>
+          <button class="icon-btn" data-del-fixed="${f.id}" title="ลบรายการ">🗑</button>
+        </div>`;
+    }).join("");
+
+    list.querySelectorAll("[data-pay]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const f = state.fixedCosts.find(x=>x.id===btn.dataset.pay);
+        if(!f) return;
+        state.transactions.unshift({
+          id: uid(), person: f.person, date: todayISO(), type: "expense", amount: f.amount,
+          category: f.name, isFixed: true, paymentMethod: f.paymentMethod, bank: f.bank || null,
+          note: `จ่าย Fixed cost: ${f.name}`, fixedTemplateId: f.id,
+        });
+        render();
+      });
+    });
+    list.querySelectorAll("[data-del-fixed]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if(!confirm("ลบรายการ Fixed cost นี้? (รายการที่บันทึกจ่ายไปแล้วในอดีตจะยังอยู่)")) return;
+        state.fixedCosts = state.fixedCosts.filter(f=>f.id!==btn.dataset.delFixed);
+        render();
+      });
+    });
+  }
+
+  function renderLedger(monthTx){
+    const body = document.getElementById("ledgerBody");
+    if(monthTx.length === 0){
+      body.innerHTML = `<div class="empty">ยังไม่มีรายการในเดือนนี้ — กด “บันทึกรายการ” เพื่อเริ่มจดบันทึก</div>`;
+      return;
+    }
+    const sorted = monthTx.slice().sort((a,b)=> b.date.localeCompare(a.date) || 0);
+    body.innerHTML = sorted.map(t => {
+      const methodLabel = t.type === "income" ? "รายรับ" : (t.paymentMethod === "บัตรเครดิต" ? `บัตร·${(t.bank||"").split(" ")[0]}` : t.paymentMethod);
+      const desc = `${escapeHtml(t.category)}${t.isFixed?" · Fixed":""}${t.note?` — ${escapeHtml(t.note)}`:""}`;
+      return `
+        <div class="ledger-row">
+          <span class="ledger-date mono">${escapeHtml(t.date.slice(5))}</span>
+          <span class="ledger-who" style="color:${personColor(t.person)}">${escapeHtml(t.person)}</span>
+          <span class="ledger-desc">${desc}</span>
+          <span class="ledger-method">${escapeHtml(methodLabel)}</span>
+          <span class="ledger-amount" style="color:${t.type==="income"?COLORS.income:COLORS.expense}">${t.type==="income"?"+":"-"}${fmt(t.amount)}</span>
+          <button class="icon-btn" data-del-tx="${t.id}" title="ลบรายการ">🗑</button>
+        </div>`;
+    }).join("");
+
+    body.querySelectorAll("[data-del-tx]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.delTx);
+        render();
+      });
+    });
+  }
+
+  function renderCharts(monthTx){
+    // payment method breakdown (doughnut)
+    const map = {};
+    monthTx.filter(t=>t.type==="expense").forEach(t => {
+      const key = t.paymentMethod === "บัตรเครดิต" ? `บัตร • ${t.bank || "อื่นๆ"}` : t.paymentMethod;
+      map[key] = (map[key]||0) + t.amount;
+    });
+    const labels = Object.keys(map);
+    const values = Object.values(map);
+    const pieEmpty = document.getElementById("pieEmpty");
+    const pieBox = document.getElementById("pieBox");
+    if(labels.length === 0){
+      pieEmpty.style.display = "block";
+      pieBox.style.display = "none";
+      if(pieChartInstance){ pieChartInstance.destroy(); pieChartInstance = null; }
+    } else {
+      pieEmpty.style.display = "none";
+      pieBox.style.display = "block";
+      const palette = [COLORS.ink, COLORS.ball, COLORS.taek, COLORS.gold, COLORS.expense, COLORS.income];
+      const ctx = document.getElementById("pieChart").getContext("2d");
+      if(pieChartInstance) pieChartInstance.destroy();
+      pieChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data: values, backgroundColor: labels.map((_,i)=>palette[i%palette.length]) }] },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11, family: "Sarabun" } } },
+            tooltip: { callbacks: { label: (c) => `${c.label}: ฿${fmt(c.raw)}` } },
+          },
+        },
+      });
+    }
+
+    // 6-month trend
+    const trendLabels = [], incomeArr = [], expenseArr = [];
+    for(let i=5;i>=0;i--){
+      const d = new Date(ui.cursor.getFullYear(), ui.cursor.getMonth()-i, 1);
+      const key = monthKey(d);
+      const list = scopedList(state.transactions.filter(t=>t.date && t.date.slice(0,7)===key));
+      trendLabels.push(new Intl.DateTimeFormat("th-TH",{month:"short"}).format(d));
+      incomeArr.push(list.filter(t=>t.type==="income").reduce((s,t)=>s+t.amount,0));
+      expenseArr.push(list.filter(t=>t.type==="expense").reduce((s,t)=>s+t.amount,0));
+    }
+    const tctx = document.getElementById("trendChart").getContext("2d");
+    if(trendChartInstance) trendChartInstance.destroy();
+    trendChartInstance = new Chart(tctx, {
+      type: "bar",
+      data: {
+        labels: trendLabels,
+        datasets: [
+          { label:"รายรับ", data: incomeArr, backgroundColor: COLORS.income, borderRadius: 3 },
+          { label:"รายจ่าย", data: expenseArr, backgroundColor: COLORS.expense, borderRadius: 3 },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          x: { ticks: { font: { size: 11, family: "Sarabun" } }, grid: { display:false } },
+          y: { ticks: { font: { size: 10 }, callback: (v)=> (v/1000)+"k" }, grid: { color: "#D8CFB8" } },
+        },
+        plugins: {
+          legend: { position:"bottom", labels: { boxWidth:10, font:{ size:11, family:"Sarabun" } } },
+          tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ฿${fmt(c.raw)}` } },
+        },
+      },
+    });
+  }
+
+  // ---------- month nav ----------
+  document.getElementById("prevMonth").addEventListener("click", () => {
+    ui.cursor = new Date(ui.cursor.getFullYear(), ui.cursor.getMonth()-1, 1);
+    render();
+  });
+  document.getElementById("nextMonth").addEventListener("click", () => {
+    ui.cursor = new Date(ui.cursor.getFullYear(), ui.cursor.getMonth()+1, 1);
+    render();
+  });
+
+  // ---------- modals: generic open/close ----------
+  function openModal(id){ document.getElementById(id).classList.add("open"); }
+  function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+  document.querySelectorAll("[data-close]").forEach(btn => {
+    btn.addEventListener("click", () => closeModal(btn.dataset.close));
+  });
+  document.querySelectorAll(".modal-overlay").forEach(ov => {
+    ov.addEventListener("click", (e) => { if(e.target === ov) closeModal(ov.id); });
+  });
+
+  // ---------- fixed cost modal ----------
+  const fcMethod = document.getElementById("fc_method");
+  const fcBankField = document.getElementById("fc_bank_field");
+  function syncFcBankVisibility(){
+    fcBankField.classList.toggle("hidden", fcMethod.value !== "บัตรเครดิต");
+  }
+  fcMethod.addEventListener("change", syncFcBankVisibility);
+
+  document.getElementById("openFixedModal").addEventListener("click", () => {
+    document.getElementById("fixedForm").reset();
+    document.getElementById("fc_dueDay").value = 5;
+    document.getElementById("fc_error").style.display = "none";
+    syncFcBankVisibility();
+    openModal("fixedModalOverlay");
+  });
+
+  document.getElementById("fixedForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const person = document.getElementById("fc_person").value;
+    const name = document.getElementById("fc_name").value.trim();
+    const amount = Number(document.getElementById("fc_amount").value);
+    const dueDay = Number(document.getElementById("fc_dueDay").value);
+    const paymentMethod = fcMethod.value;
+    const bank = document.getElementById("fc_bank").value;
+    const err = document.getElementById("fc_error");
+
+    if(!name){ err.textContent = "กรุณาระบุชื่อรายการ"; err.style.display="block"; return; }
+    if(!amount || amount <= 0){ err.textContent = "จำนวนเงินต้องมากกว่า 0"; err.style.display="block"; return; }
+    if(!dueDay || dueDay < 1 || dueDay > 31){ err.textContent = "วันครบกำหนดต้องอยู่ระหว่าง 1-31"; err.style.display="block"; return; }
+    if(paymentMethod === "บัตรเครดิต" && !bank){ err.textContent = "กรุณาเลือกธนาคาร/บัตรเครดิต"; err.style.display="block"; return; }
+
+    state.fixedCosts.push({
+      id: uid(), person, name, amount, dueDay,
+      paymentMethod, bank: paymentMethod==="บัตรเครดิต" ? bank : null,
+    });
+    closeModal("fixedModalOverlay");
+    render();
+  });
+
+  // ---------- transaction modal ----------
+  const txTypeInput = document.getElementById("tx_type");
+  const txBtnExpense = document.getElementById("tx_type_expense");
+  const txBtnIncome = document.getElementById("tx_type_income");
+  const txIsFixedField = document.getElementById("tx_isFixed_field");
+  const txIsFixed = document.getElementById("tx_isFixed");
+  const txFixedCategory = document.getElementById("tx_fixedCategory");
+  const txCategory = document.getElementById("tx_category");
+  const txCatLabel = document.getElementById("tx_cat_label");
+  const txMethodField = document.getElementById("tx_method_field");
+  const txMethod = document.getElementById("tx_method");
+  const txBankField = document.getElementById("tx_bank_field");
+  const txBank = document.getElementById("tx_bank");
+  const txPerson = document.getElementById("tx_person");
+
+  function setTxType(type){
+    txTypeInput.value = type;
+    txBtnExpense.className = type==="expense" ? "active-expense" : "";
+    txBtnIncome.className = type==="income" ? "active-income" : "";
+    const isExpense = type === "expense";
+    txIsFixedField.classList.toggle("hidden", !isExpense);
+    txMethodField.classList.toggle("hidden", !isExpense);
+    txCatLabel.textContent = isExpense ? "หมวดหมู่" : "แหล่งที่มา";
+    if(!isExpense){ txBankField.classList.add("hidden"); }
+    syncFixedCategoryVisibility();
+  }
+  txBtnExpense.addEventListener("click", () => setTxType("expense"));
+  txBtnIncome.addEventListener("click", () => setTxType("income"));
+
+  function populateFixedCategoryOptions(){
+    const person = txPerson.value;
+    const items = state.fixedCosts.filter(f => f.person === person);
+    txFixedCategory.innerHTML = `<option value="">เลือกรายการ</option>` +
+      items.map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join("");
+  }
+
+  function syncFixedCategoryVisibility(){
+    const isExpense = txTypeInput.value === "expense";
+    const isFixed = txIsFixed.value === "fixed";
+    txFixedCategory.classList.toggle("hidden", !(isExpense && isFixed));
+    txCategory.classList.toggle("hidden", isExpense && isFixed);
+    if(isExpense && isFixed) populateFixedCategoryOptions();
+  }
+  txIsFixed.addEventListener("change", syncFixedCategoryVisibility);
+  txPerson.addEventListener("change", () => { populateFixedCategoryOptions(); syncFixedCategoryVisibility(); });
+
+  txFixedCategory.addEventListener("change", () => {
+    const f = state.fixedCosts.find(x => x.id === txFixedCategory.value);
+    if(f){
+      document.getElementById("tx_amount").value = f.amount;
+      txMethod.value = f.paymentMethod;
+      syncTxBankVisibility();
+      if(f.bank) txBank.value = f.bank;
+    }
+  });
+
+  function syncTxBankVisibility(){
+    txBankField.classList.toggle("hidden", !(txTypeInput.value==="expense" && txMethod.value === "บัตรเครดิต"));
+  }
+  txMethod.addEventListener("change", syncTxBankVisibility);
+
+  document.getElementById("openTxModal").addEventListener("click", () => {
+    document.getElementById("txForm").reset();
+    document.getElementById("tx_date").value = todayISO();
+    document.getElementById("tx_error").style.display = "none";
+    setTxType("expense");
+    txIsFixed.value = "daily";
+    populateFixedCategoryOptions();
+    syncFixedCategoryVisibility();
+    syncTxBankVisibility();
+    openModal("txModalOverlay");
+  });
+
+  document.getElementById("txForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const type = txTypeInput.value;
+    const person = txPerson.value;
+    const date = document.getElementById("tx_date").value;
+    const amount = Number(document.getElementById("tx_amount").value);
+    const isFixed = type === "expense" && txIsFixed.value === "fixed";
+    const note = document.getElementById("tx_note").value.trim();
+    const err = document.getElementById("tx_error");
+
+    let category, paymentMethod = null, bank = null, fixedTemplateId = null;
+
+    if(!date){ err.textContent = "กรุณาเลือกวันที่"; err.style.display="block"; return; }
+    if(!amount || amount <= 0){ err.textContent = "จำนวนเงินต้องมากกว่า 0"; err.style.display="block"; return; }
+
+    if(isFixed){
+      const f = state.fixedCosts.find(x => x.id === txFixedCategory.value);
+      if(!f){ err.textContent = "กรุณาเลือกรายการ Fixed cost"; err.style.display="block"; return; }
+      category = f.name;
+      fixedTemplateId = f.id;
+      paymentMethod = txMethod.value;
+      bank = paymentMethod === "บัตรเครดิต" ? txBank.value : null;
+    } else {
+      category = txCategory.value.trim();
+      if(!category){ err.textContent = type==="income" ? "กรุณาระบุแหล่งที่มา" : "กรุณาระบุหมวดหมู่"; err.style.display="block"; return; }
+      if(type === "expense"){
+        paymentMethod = txMethod.value;
+        bank = paymentMethod === "บัตรเครดิต" ? txBank.value : null;
+      }
+    }
+    if(type === "expense" && paymentMethod === "บัตรเครดิต" && !bank){
+      err.textContent = "กรุณาเลือกธนาคาร/บัตรเครดิต"; err.style.display="block"; return;
+    }
+
+    state.transactions.unshift({
+      id: uid(), person, date, type, amount, category, isFixed,
+      paymentMethod, bank, note: note || null, fixedTemplateId,
+    });
+    closeModal("txModalOverlay");
+    render();
+  });
+
+  // ---------- init ----------
+  (async function init(){
+    document.getElementById("setupBanner").style.display = isSupabaseConfigured ? "none" : "block";
+    setIndicator("กำลังโหลดข้อมูล…", "0.8");
+    state = await loadState();
+    render();
+    subscribeRealtime();
+  })();
+})();
+</script>
+</body>
+</html>
